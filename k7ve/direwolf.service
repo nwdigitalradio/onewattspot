@@ -1,0 +1,15 @@
+[Unit]
+Description=Direwolf
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/local/bin/direwolf -c /etc/direwolf.conf
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=dstarconfig
+
+[Install]
+WantedBy=multi-user.target
