@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <string.h>
+#include <errno.h>
 
 #define RPI_SERIAL_DEVICE "/dev/ttyS0" /* /dev/ttyAMA0 */
 #define SIZE_READBUF 128
@@ -23,10 +24,12 @@ int writeserbuf(int fs, char *outstring)
 	strcpy(outbuf, outstring);
 	strcat(outbuf, "\r\n");
 
+	printf("%s: output: %s", __FUNCTION__, outbuf);
 	iocount = write(fs, &outbuf[0], strlen(outbuf));
-	if (iocount < 0)
-	{
-		printf("UART TX error\n");
+	if (iocount < 0) {
+		printf("%s: UART TX error\n", __FUNCTION__);
+	} else {
+		printf("%s: UART TX byte cnt: %d\n", __FUNCTION__, iocount);
 	}
 	return(iocount);
 }
@@ -36,16 +39,14 @@ int handle_serialread(int fs, char *rx_buffer, int len_rx_buffer)
 	int rx_length;
 
 	rx_length = read(fs, (void*)rx_buffer, len_rx_buffer);
-	if (rx_length < 0)
-	{
+	if (rx_length < 0) {
 		//An error occured (will occur if there are no bytes)
 	}
-	else if (rx_length == 0)
-	{
-		//No data waiting
-	}
-	else
-	{
+	else if (rx_length == 0) {
+		/* No data waiting
+		 * This shouldn't happen */
+		printf("%s: no data on read\n", __FUNCTION__);
+	} else {
 		//Bytes received
 		rx_buffer[rx_length] = '\0';
 		printf("%i bytes read : %s\n", rx_length, rx_buffer);
@@ -56,38 +57,48 @@ int handle_serialread(int fs, char *rx_buffer, int len_rx_buffer)
 int readserbuf(int serialfs, char *readbuf, int len_readbuf)
 {
 	fd_set set;
-	struct timeval timeout;
 	int rv;
-
 	int retcode = 0;
 
-	FD_ZERO(&set); /* clear the set */
-	FD_SET(serialfs, &set); /* add our file descriptor to the set */
+	/* init readbuffer for debug */
+	memset(readbuf, 0, len_readbuf);
 
-	/* Set read timeout to 5 seconds */
-	timeout.tv_sec = 5;
-	timeout.tv_usec = 0;
+	while(1) {
+		/* Set read timeout to 5 seconds */
+		struct timeval timeout={5,0};
 
-	rv = select(serialfs + 1, &set, NULL, NULL, &timeout);
-	if(rv == -1) {
-		perror("select"); /* an error accured */
-		retcode = -1;
-	}
-	else if(rv == 0) {
-		printf("timeout"); /* a timeout occured */
-		retcode = 0;
-	}
-	else {
-		retcode = handle_serialread( serialfs, readbuf, len_readbuf ); /* there was data to read */
+		FD_ZERO(&set); /* clear the set */
+		FD_SET(serialfs, &set); /* add our file descriptor to the set */
+
+		rv = select(serialfs + 1, &set, NULL, NULL, &timeout);
+		if(rv == -1) {
+			perror("select"); /* a select error accured */
+			if (errno == EBADF) {
+				retcode = -1;
+				break;
+			}
+			continue;
+		} else if(rv == 0) {
+			printf("%s: timeout\n", __FUNCTION__); /* a timeout occured */
+			retcode = 0;
+			break;
+		} else {
+			int index; /* debug only */
+
+			retcode = handle_serialread( serialfs, readbuf, len_readbuf ); /* there was data to read */
+			index = strlen(readbuf);
+			printf("%s: Debug last 2 chars 0x%02x, 0x%02x\n", __FUNCTION__, readbuf[index-1], readbuf[index]);
+		}
 	}
 	return(retcode);
 }
 
 int main(int argc, char *argv[])
 {
-	int uart0fs;
+	int uart0fs, i;
 	char readbuf[SIZE_READBUF];
 	int len_readbuf = SIZE_READBUF;
+	int bytecnt;
 
 	/* OPEN THE UART
 	 * The flags (defined in fcntl.h):
@@ -107,8 +118,7 @@ int main(int argc, char *argv[])
 	 */
 	uart0fs = open(RPI_SERIAL_DEVICE, O_RDWR | O_NOCTTY | O_NDELAY);
 	/* open in non blocking read/write mode */
-	if (uart0fs == -1)
-	{
+	if (uart0fs == -1) {
 		//ERROR - CAN'T OPEN SERIAL PORT
 		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
 		exit(EXIT_FAILURE);
@@ -122,7 +132,7 @@ int main(int argc, char *argv[])
 	 *	CLOCAL - Ignore modem status lines
 	 *	CREAD - Enable receiver
 	 *	IGNPAR = Ignore characters with parity errors
-	 *	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
+	 *	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for binary comms!)
 	 *	PARENB - Parity enable
 	 *	PARODD - Odd parity (else even)
 	 */
@@ -139,19 +149,33 @@ int main(int argc, char *argv[])
 	tcflush(uart0fs, TCIFLUSH);
 	tcsetattr(uart0fs, TCSANOW, &options);
 
-	writeserbuf(uart0fs, "AT+DMOCONNECT");
-	readserbuf(uart0fs, readbuf, len_readbuf);
-	/*
-	 * Group setting command
-	 * Description: command used to configure a group of module parameters.
-	 * Format: AT+DMOSETGROUP=GBW,TFV, RFV,Tx_CTCSS,SQ,Rx_CTCSS<CR><LF>
-	 */
-	writeserbuf(uart0fs, "AT+DMOSETGROUP=0,144.3900,144.3900,0000,4,0000");
-	readserbuf(uart0fs, readbuf, len_readbuf);
-	writeserbuf(uart0fs, "AT+SETFILTER=1,1,1");
-	readserbuf(uart0fs, readbuf, len_readbuf);
-	writeserbuf(uart0fs, "AT+DMOSETVOLUME=3");
-	readserbuf(uart0fs, readbuf, len_readbuf);
+	for (i=0 ; i < 3; i++) {
+		writeserbuf(uart0fs, "AT+DMOCONNECT");
+		bytecnt=readserbuf(uart0fs, readbuf, len_readbuf);
+		if(bytecnt !=0) {
+			printf("%s: Handshake successful (%d) at index %d\n",
+			       __FUNCTION__, bytecnt, i);
+			break;
+		}
+	}
+	if (bytecnt == 0) {
+		printf("%s: Failed to initialize DRA818V, exiting\n", __FUNCTION__);
+
+	} else {
+		/*
+		 * Group setting command
+		 * Description: command used to configure a group of module parameters.
+		 * Format: AT+DMOSETGROUP=GBW,TFV, RFV,Tx_CTCSS,SQ,Rx_CTCSS<CR><LF>
+		 */
+		writeserbuf(uart0fs, "AT+DMOSETGROUP=0,144.3900,144.3900,0000,4,0000");
+		readserbuf(uart0fs, readbuf, len_readbuf);
+		writeserbuf(uart0fs, "AT+SETFILTER=1,1,1");
+		readserbuf(uart0fs, readbuf, len_readbuf);
+		writeserbuf(uart0fs, "AT+DMOSETVOLUME=3");
+		readserbuf(uart0fs, readbuf, len_readbuf);
+	}
+
+	close(uart0fs);
 
 	return 0;
 }
