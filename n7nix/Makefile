@@ -1,16 +1,12 @@
 #
-# Makefile for grntimer
-#
-#
-# Please note that this Makefile *needs* GNU make. BSD make won't do.
+# Makefile for ser_init.c
 #
 #
 VERSION = 0.1
 
 CC	= gcc
-CFLAGS	= -O2 -g -gstabs -Wall    #-I /usr/include/sys -O2 # -g -Wall
-#LIBS	= -lm -lrt  #    POSIX Real-time Library (librt, -lrt)
-LIBS	= -lc       # -lm
+CFLAGS	= -O2 -g -gstabs -Wall
+LIBS	= -lc
 
 SRC	= ser_init.c
 OBJS	= ser_init.o
@@ -38,8 +34,9 @@ help:
 	@echo "  CFLAGS = $(CFLAGS)"
 	@echo "  LIBS   = $(LIBS)"
 	@echo ""
-	@echo "Pick one of the following targets:"
-	@echo -e "\tgmake grntimer"
+	@echo "  Pick one of the following targets:"
+	@echo  "\tmake ser_init"
+	@echo  "\tmake help"
 	@echo " "
 
 
@@ -47,7 +44,7 @@ ser_init:	$(SRC) $(HDRS) $(OBJS) Makefile
 		$(CC) $(OBJS) -o ser_init $(LIBS)
 
 
-# Clean up the object files and the sub-directory for distributions
+# Clean up the object files for distribution
 clean:
 		rm -f $(OBJS)
 		rm -f core *.asc
