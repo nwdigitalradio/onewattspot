@@ -1,6 +1,10 @@
 # one watt spot
 Development scripts for 1 Watt Spot
 
+### Reference Links
+
+* [Dorji DRA818V VHF Band Transceiver Module](http://www.dorji.com/docs/data/DRA818V.pdf)
+
 ### K7VE notes
 
 * Observe the volume setting in init.py and adc in my-1wSpot-setup.sh
