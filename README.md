@@ -21,3 +21,13 @@ init.py
 my-1wSpot-setup.sh
 ntp.conf
 ```
+
+* Needed to install the following to get python script to run
+```
+apt-get install python-pip python-serial python3-serial
+```
+
+* run init script like this:
+```
+python init.py
+```
