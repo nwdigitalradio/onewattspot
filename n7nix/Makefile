@@ -24,7 +24,7 @@ CFLAGS += -DLINUX
 
 # Set LOCK to yes for serial port locking support
 LOCK = no
-LIBS   += -L/usr/lib -lcurl -lssl -lcrypto -lz
+LIBS   += -L/usr/lib -lz
 
 ifeq ($(LOCK), yes)
   CFLAGS += -DLOCKDEV
