@@ -33,7 +33,10 @@ apt-get install python-pip python-serial python3-serial
 apt-get install wiringpi
 ```
 
-* run init script like this:
+* run init scripts like this:
 ```
+cd
+cd onewattspot/k7ve
+./setup_gpio.sh
 python init.py
 ```
