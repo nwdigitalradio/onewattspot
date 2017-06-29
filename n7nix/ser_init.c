@@ -24,12 +24,12 @@ int writeserbuf(int fs, char *outstring)
 	strcpy(outbuf, outstring);
 	strcat(outbuf, "\r\n");
 
-	printf("%s: output: %s", __FUNCTION__, outbuf);
 	iocount = write(fs, &outbuf[0], strlen(outbuf));
 	if (iocount < 0) {
-		printf("%s: UART TX error\n", __FUNCTION__);
+		printf("%s: UART TX error on buf: %s\n", __FUNCTION__, outbuf);
 	} else {
-		printf("%s: UART TX byte cnt: %d\n", __FUNCTION__, iocount);
+		printf("%s: output(%d): %s", __FUNCTION__, iocount, outbuf);
+
 	}
 	return(iocount);
 }
@@ -40,16 +40,14 @@ int handle_serialread(int fs, char *rx_buffer, int len_rx_buffer)
 
 	rx_length = read(fs, (void*)rx_buffer, len_rx_buffer);
 	if (rx_length < 0) {
-		//An error occured (will occur if there are no bytes)
+		/* An error occured (will occur if there are no bytes) */
 	}
 	else if (rx_length == 0) {
-		/* No data waiting
-		 * This shouldn't happen */
+		/* No data waiting - this shouldn't happen */
 		printf("%s: no data on read\n", __FUNCTION__);
 	} else {
-		//Bytes received
+		/* byte(s) received */
 		rx_buffer[rx_length] = '\0';
-		printf("%i bytes read : %s\n", rx_length, rx_buffer);
 	}
 	return(rx_length);
 }
@@ -57,17 +55,17 @@ int handle_serialread(int fs, char *rx_buffer, int len_rx_buffer)
 int readserbuf(int serialfs, char *readbuf, int len_readbuf)
 {
 	fd_set set;
-	int rv;
+	int rv, iocnt, bufcnt=0;
 	int retcode = 0;
 
-	/* init readbuffer for debug */
+	/* init read buffer for debug */
 	memset(readbuf, 0, len_readbuf);
 
 	while(1) {
 		/* Set read timeout to 5 seconds */
 		struct timeval timeout={5,0};
 
-		FD_ZERO(&set); /* clear the set */
+		FD_ZERO(&set);		/* clear the set */
 		FD_SET(serialfs, &set); /* add our file descriptor to the set */
 
 		rv = select(serialfs + 1, &set, NULL, NULL, &timeout);
@@ -83,11 +81,18 @@ int readserbuf(int serialfs, char *readbuf, int len_readbuf)
 			retcode = 0;
 			break;
 		} else {
-			int index; /* debug only */
+			/* there was data to read, so read it */
+			iocnt = handle_serialread( serialfs, &readbuf[bufcnt], len_readbuf-bufcnt );
+			bufcnt+=iocnt;
+#if 0
+			printf("%s: Debug last 2 chars 0x%02x, 0x%02x\n", __FUNCTION__, readbuf[bufcnt-2], readbuf[bufcnt-1]);
+#endif
+			if (readbuf[bufcnt-2] == 0x0d && readbuf[bufcnt-1] == 0x0a) {
+				printf("%s: Response(%d): %s", __FUNCTION__, bufcnt, readbuf);
+				retcode = bufcnt;
+				break;
+			}
 
-			retcode = handle_serialread( serialfs, readbuf, len_readbuf ); /* there was data to read */
-			index = strlen(readbuf);
-			printf("%s: Debug last 2 chars 0x%02x, 0x%02x\n", __FUNCTION__, readbuf[index-1], readbuf[index]);
 		}
 	}
 	return(retcode);
@@ -114,7 +119,9 @@ int main(int argc, char *argv[])
 	 *	immediately with a failure status if the output can't be written
 	 *	immediately.
 	 *
-	 *	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+	 *	O_NOCTTY - When set and path identifies a terminal
+	 *	device, open() shall not cause the terminal device to become the
+	 *	controlling terminal for the process.
 	 */
 	uart0fs = open(RPI_SERIAL_DEVICE, O_RDWR | O_NOCTTY | O_NDELAY);
 	/* open in non blocking read/write mode */
@@ -149,6 +156,15 @@ int main(int argc, char *argv[])
 	tcflush(uart0fs, TCIFLUSH);
 	tcsetattr(uart0fs, TCSANOW, &options);
 
+	/*
+	 * Handshake command
+	 * Description: Used to check if the module works normally.
+	 * DRA818V module will send back response information when it
+	 * receives this command from the host. If the host doesn't
+	 * receive any response from module after three times of
+	 * continuously sending this command, it will restart the
+	 * module.
+	 */
 	for (i=0 ; i < 3; i++) {
 		writeserbuf(uart0fs, "AT+DMOCONNECT");
 		bytecnt=readserbuf(uart0fs, readbuf, len_readbuf);
