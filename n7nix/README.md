@@ -19,5 +19,5 @@ enable_uart=1
 
 * If EEPROM is not programmmed need to add this to /boot/config.txt
 ```
-dtoverlya=udrc
+dtoverlay=udrc
 ```
