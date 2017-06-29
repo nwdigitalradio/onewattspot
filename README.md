@@ -15,6 +15,7 @@ Development scripts for 1 Watt Spot
 
 ###### Files in k7ve
 ```
+setup.sh
 direwolf.conf
 direwolf.service
 init.py
@@ -22,9 +23,14 @@ my-1wSpot-setup.sh
 ntp.conf
 ```
 
-* Needed to install the following to get python script to run
+* Need to install the following to get python script to run
 ```
 apt-get install python-pip python-serial python3-serial
+```
+
+* Need to install the following to get gpio setup
+```
+apt-get install wiringpi
 ```
 
 * run init script like this:
