@@ -8,95 +8,23 @@
 #include <termios.h>
 #include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define RPI_SERIAL_DEVICE "/dev/ttyS0" /* /dev/ttyAMA0 */
 #define SIZE_READBUF 128
+#define DEFAULT_FREQ 1443900
+#define DORJI_SIG_DIG 7
 
-/*
- * configure the serial connections (the parameters differs on the device you are connecting to)
- */
+static void usage(void);
+const char *getprogname(void);
+int writeserbuf(int fs, char *outstring);
+int readserbuf(int serialfs, char *readbuf, int len_readbuf);
+bool check_freq( int freq );
+int parse_freq(char *strfreq);
+int padrightzeros(char *str_in, char *str_out);
+int add_decimal( char *str);
 
-int writeserbuf(int fs, char *outstring)
-{
-	int iocount;
-	char outbuf[128];
-
-	strcpy(outbuf, outstring);
-	strcat(outbuf, "\r\n");
-
-	iocount = write(fs, &outbuf[0], strlen(outbuf));
-	if (iocount < 0) {
-		printf("%s: UART TX error on buf: %s\n", __FUNCTION__, outbuf);
-	} else {
-		printf("%s: output(%d): %s", __FUNCTION__, iocount, outbuf);
-
-	}
-	return(iocount);
-}
-
-int handle_serialread(int fs, char *rx_buffer, int len_rx_buffer)
-{
-	int rx_length;
-
-	rx_length = read(fs, (void*)rx_buffer, len_rx_buffer);
-	if (rx_length < 0) {
-		/* An error occured (will occur if there are no bytes) */
-	}
-	else if (rx_length == 0) {
-		/* No data waiting - this shouldn't happen */
-		printf("%s: no data on read\n", __FUNCTION__);
-	} else {
-		/* byte(s) received */
-		rx_buffer[rx_length] = '\0';
-	}
-	return(rx_length);
-}
-
-int readserbuf(int serialfs, char *readbuf, int len_readbuf)
-{
-	fd_set set;
-	int rv, iocnt, bufcnt=0;
-	int retcode = 0;
-
-	/* init read buffer for debug */
-	memset(readbuf, 0, len_readbuf);
-
-	while(1) {
-		/* Set read timeout to 5 seconds */
-		struct timeval timeout={5,0};
-
-		FD_ZERO(&set);		/* clear the set */
-		FD_SET(serialfs, &set); /* add our file descriptor to the set */
-
-		rv = select(serialfs + 1, &set, NULL, NULL, &timeout);
-		if(rv == -1) {
-			perror("select"); /* a select error accured */
-			if (errno == EBADF) {
-				retcode = -1;
-				break;
-			}
-			continue;
-		} else if(rv == 0) {
-			printf("%s: timeout\n", __FUNCTION__); /* a timeout occured */
-			retcode = 0;
-			break;
-		} else {
-			/* there was data to read, so read it */
-			iocnt = handle_serialread( serialfs, &readbuf[bufcnt], len_readbuf-bufcnt );
-			bufcnt+=iocnt;
-#if 0
-			printf("%s: Debug last 2 chars 0x%02x, 0x%02x\n", __FUNCTION__, readbuf[bufcnt-2], readbuf[bufcnt-1]);
-#endif
-			if (readbuf[bufcnt-2] == 0x0d && readbuf[bufcnt-1] == 0x0a) {
-				printf("%s: Response(%d): %s", __FUNCTION__, bufcnt, readbuf);
-				retcode = bufcnt;
-				break;
-			}
-
-		}
-	}
-	return(retcode);
-}
+extern char *__progname;
 
 int main(int argc, char *argv[])
 {
@@ -104,6 +32,69 @@ int main(int argc, char *argv[])
 	char readbuf[SIZE_READBUF];
 	int len_readbuf = SIZE_READBUF;
 	int bytecnt;
+	char *ptx_freq, *prx_freq;
+	long int itx_freq, irx_freq;
+	char tfv[DORJI_SIG_DIG + 2];
+	char rfv[DORJI_SIG_DIG + 2];
+
+
+	itx_freq = irx_freq = DEFAULT_FREQ;
+
+	/* parse any command line args */
+
+	printf("arg count: %d\n", argc);
+	for (i=0; i < argc; i++) {
+		printf("arg %d: %s\n", i, argv[i]);
+	}
+
+	/* get  transmit/receive frequency:
+	 * range: 134.000 - 174.000 Mhz */
+	if(argc == 1) {
+		snprintf(tfv, DORJI_SIG_DIG+1, "%ld", itx_freq);
+		snprintf(rfv, DORJI_SIG_DIG+1, "%ld", irx_freq);
+		add_decimal(tfv);
+		add_decimal(rfv);
+	}
+	if(argc > 1) {
+		ptx_freq = argv[1];
+
+		padrightzeros(ptx_freq, tfv);
+		itx_freq = strtol(tfv, NULL, 0);
+		add_decimal(tfv);
+
+		printf(" transmit frequency: %ld, %zd\n",
+		       itx_freq, strlen(ptx_freq));
+
+		/* make receive frequency the same */
+		strcpy(rfv, tfv);
+		irx_freq = itx_freq;
+	}
+	if(argc > 2) {
+		prx_freq = argv[2];
+
+		padrightzeros(prx_freq, rfv);
+		irx_freq = strtol(rfv, NULL, 0);
+		add_decimal(rfv);
+
+		printf(" receive frequency: %ld, %zd\n",
+		       irx_freq, strlen(prx_freq));
+
+	}
+	/* Only handle tx freq & rx freq on command line */
+	if(argc > 3) {
+		usage();  /* does not return */
+	}
+
+	if( !check_freq(itx_freq) ) {
+		printf("%s: Transmit frequency out of range: %ld\n", getprogname(), itx_freq);
+		usage();
+	}
+	if( !check_freq(irx_freq) ) {
+		printf("%s: Receive frequency out of range: %ld\n", getprogname(), irx_freq);
+		usage();
+	}
+
+	printf("tfv: %s, rfv: %s\n", tfv, rfv);
 
 	/* OPEN THE UART
 	 * The flags (defined in fcntl.h):
@@ -194,4 +185,163 @@ int main(int argc, char *argv[])
 	close(uart0fs);
 
 	return 0;
+}
+
+/*
+ * configure the serial connections (the parameters differs on the device you are connecting to)
+ */
+
+int writeserbuf(int fs, char *outstring)
+{
+	int iocount;
+	char outbuf[128];
+
+	strcpy(outbuf, outstring);
+	strcat(outbuf, "\r\n");
+
+	iocount = write(fs, &outbuf[0], strlen(outbuf));
+	if (iocount < 0) {
+		printf("%s: UART TX error on buf: %s\n", __FUNCTION__, outbuf);
+	} else {
+		printf("%s: output(%d): %s", __FUNCTION__, iocount, outbuf);
+
+	}
+	return(iocount);
+}
+
+int handle_serialread(int fs, char *rx_buffer, int len_rx_buffer)
+{
+	int rx_length;
+
+	rx_length = read(fs, (void*)rx_buffer, len_rx_buffer);
+	if (rx_length < 0) {
+		/* An error occured (will occur if there are no bytes) */
+	}
+	else if (rx_length == 0) {
+		/* No data waiting - this shouldn't happen */
+		printf("%s: no data on read\n", __FUNCTION__);
+	} else {
+		/* byte(s) received */
+		rx_buffer[rx_length] = '\0';
+	}
+	return(rx_length);
+}
+
+int readserbuf(int serialfs, char *readbuf, int len_readbuf)
+{
+	fd_set set;
+	int rv, iocnt, bufcnt=0;
+	int retcode = 0;
+
+	/* init read buffer for debug */
+	memset(readbuf, 0, len_readbuf);
+
+	while(1) {
+		/* Set read timeout to 5 seconds */
+		struct timeval timeout={5,0};
+
+		FD_ZERO(&set);		/* clear the set */
+		FD_SET(serialfs, &set); /* add our file descriptor to the set */
+
+		rv = select(serialfs + 1, &set, NULL, NULL, &timeout);
+		if(rv == -1) {
+			perror("select"); /* a select error accured */
+			if (errno == EBADF) {
+				retcode = -1;
+				break;
+			}
+			continue;
+		} else if(rv == 0) {
+			printf("%s: timeout\n", __FUNCTION__); /* a timeout occured */
+			retcode = 0;
+			break;
+		} else {
+			/* there was data to read, so read it */
+			iocnt = handle_serialread( serialfs, &readbuf[bufcnt], len_readbuf-bufcnt );
+			bufcnt+=iocnt;
+#if 0
+			printf("%s: Debug last 2 chars 0x%02x, 0x%02x\n", __FUNCTION__, readbuf[bufcnt-2], readbuf[bufcnt-1]);
+#endif
+			if (readbuf[bufcnt-2] == 0x0d && readbuf[bufcnt-1] == 0x0a) {
+				printf("%s: Response(%d): %s", __FUNCTION__, bufcnt, readbuf);
+				retcode = bufcnt;
+				break;
+			}
+
+		}
+	}
+	return(retcode);
+}
+
+int add_decimal( char *str) {
+	char copy_str[16];
+
+	if( strlen(str) > 16 ) {
+		printf("%s: %s: string too long\n", getprogname(), __FUNCTION__);
+		return 0;
+	}
+	memset(copy_str, 0, 16);
+
+	printf ("debug: strlen: %zd\n", strlen(str));
+	printf ("str0: %s\n", str);
+
+	strncpy(copy_str, str, 16);
+
+	*(str+3) = '.';
+	*(str+4) = '\0';
+
+	printf ("str1: %s\n", str);
+
+	strncat(str, copy_str+3, 4);
+	printf("str2: %s\n", str);
+	return 1;
+}
+
+int padrightzeros(char *str_in, char *str_out) {
+	char zerostr[DORJI_SIG_DIG];
+
+	int numstrsize = strlen(str_in);
+
+	if( numstrsize > DORJI_SIG_DIG ) {
+		strncpy(str_out, str_in, DORJI_SIG_DIG);
+	} else if (numstrsize == DORJI_SIG_DIG ) {
+		strncpy(str_out, str_in, DORJI_SIG_DIG);
+	} else {
+		strcpy(str_out, str_in);
+		memset(zerostr, 0x30, DORJI_SIG_DIG - strlen(str_in));
+		strncat(str_out, zerostr, DORJI_SIG_DIG - strlen(str_in));
+	}
+
+	return 0;
+}
+
+bool check_freq( int freq ) {
+	bool retcode = false;
+
+	if (freq >= 1340000 && freq <= 1740000) {
+		retcode = true;
+	}
+	return (retcode);
+}
+
+int parse_freq(char *strfreq) {
+	bool retcode = false;
+	return (retcode);
+}
+
+const char *getprogname(void)
+{
+	return __progname;
+}
+
+/*
+ * Print usage information and exit
+ *  - does not return
+ */
+static void
+   usage(void)
+{
+	printf("Usage:  %s [tx freq] [rx freq]\n", getprogname());
+	printf("  frequency range: 134.0000 & 174.0000\n");
+	exit(EXIT_SUCCESS);
 }
