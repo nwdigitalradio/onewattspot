@@ -15,7 +15,7 @@ Development scripts for 1 Watt Spot
 
 ###### Files in k7ve
 ```
-setup.sh
+setup_gpio.sh
 direwolf.conf
 direwolf.service
 init.py
