@@ -12,6 +12,7 @@
 
 #define RPI_SERIAL_DEVICE "/dev/ttyS0" /* /dev/ttyAMA0 */
 #define SIZE_READBUF 128
+#define SIZE_GSCBUF 128
 #define DEFAULT_FREQ 1443900
 #define DORJI_SIG_DIG 7
 
@@ -24,6 +25,16 @@ int parse_freq(char *strfreq);
 int padrightzeros(char *str_in, char *str_out);
 int add_decimal( char *str);
 
+/* Structure of DRA818V Group Setting Command */
+typedef struct gsc {
+	int gbw;
+	char tfv[DORJI_SIG_DIG + 2];
+	char rfv[DORJI_SIG_DIG + 2];
+	int tx_ctcss;
+	int sq;
+	int rx_ctcss;
+} gsc_t;
+
 extern char *__progname;
 
 int main(int argc, char *argv[])
@@ -31,50 +42,56 @@ int main(int argc, char *argv[])
 	int uart0fs, i;
 	char readbuf[SIZE_READBUF];
 	int len_readbuf = SIZE_READBUF;
+	char gscbuf[SIZE_GSCBUF];
+
 	int bytecnt;
 	char *ptx_freq, *prx_freq;
 	long int itx_freq, irx_freq;
-	char tfv[DORJI_SIG_DIG + 2];
-	char rfv[DORJI_SIG_DIG + 2];
+	gsc_t gsc;
 
-
+	/* init group set command struct */
+	memset(&gsc, 0, sizeof(gsc));
+	gsc.sq = 4;
 	itx_freq = irx_freq = DEFAULT_FREQ;
 
 	/* parse any command line args */
 
-	printf("arg count: %d\n", argc);
-	for (i=0; i < argc; i++) {
-		printf("arg %d: %s\n", i, argv[i]);
-	}
-
 	/* get  transmit/receive frequency:
 	 * range: 134.000 - 174.000 Mhz */
 	if(argc == 1) {
-		snprintf(tfv, DORJI_SIG_DIG+1, "%ld", itx_freq);
-		snprintf(rfv, DORJI_SIG_DIG+1, "%ld", irx_freq);
-		add_decimal(tfv);
-		add_decimal(rfv);
+		snprintf(gsc.tfv, DORJI_SIG_DIG+1, "%ld", itx_freq);
+		snprintf(gsc.rfv, DORJI_SIG_DIG+1, "%ld", irx_freq);
+		add_decimal(gsc.tfv);
+		add_decimal(gsc.rfv);
 	}
 	if(argc > 1) {
 		ptx_freq = argv[1];
 
-		padrightzeros(ptx_freq, tfv);
-		itx_freq = strtol(tfv, NULL, 0);
-		add_decimal(tfv);
+		/* Don't allow decimal points on command line*/
+		if( memchr(ptx_freq, '.', strlen(ptx_freq)) != NULL) {
+			usage(); /* does not return */
+		}
+		padrightzeros(ptx_freq, gsc.tfv);
+		itx_freq = strtol(gsc.tfv, NULL, 0);
+		add_decimal(gsc.tfv);
 
 		printf(" transmit frequency: %ld, %zd\n",
 		       itx_freq, strlen(ptx_freq));
 
 		/* make receive frequency the same */
-		strcpy(rfv, tfv);
+		strcpy(gsc.rfv, gsc.tfv);
 		irx_freq = itx_freq;
 	}
 	if(argc > 2) {
 		prx_freq = argv[2];
 
-		padrightzeros(prx_freq, rfv);
-		irx_freq = strtol(rfv, NULL, 0);
-		add_decimal(rfv);
+		/* Don't allow decimal points */
+		if( memchr(ptx_freq, '.', strlen(ptx_freq)) != NULL) {
+			usage(); /* does not return */
+		}
+		padrightzeros(prx_freq, gsc.rfv);
+		irx_freq = strtol(gsc.rfv, NULL, 0);
+		add_decimal(gsc.rfv);
 
 		printf(" receive frequency: %ld, %zd\n",
 		       irx_freq, strlen(prx_freq));
@@ -87,14 +104,17 @@ int main(int argc, char *argv[])
 
 	if( !check_freq(itx_freq) ) {
 		printf("%s: Transmit frequency out of range: %ld\n", getprogname(), itx_freq);
-		usage();
+		usage(); /* does not return */
 	}
 	if( !check_freq(irx_freq) ) {
 		printf("%s: Receive frequency out of range: %ld\n", getprogname(), irx_freq);
-		usage();
+		usage(); /* does not return */
 	}
 
-	printf("tfv: %s, rfv: %s\n", tfv, rfv);
+	snprintf(gscbuf, sizeof(gscbuf), "AT+DMOSETGROUP=%d,%s,%s,%04d,%d,%04d",
+		 gsc.gbw,gsc.tfv, gsc.rfv, gsc.tx_ctcss, gsc.sq, gsc.rx_ctcss);
+
+	printf("DEBUG: gscbuf: %s\n", gscbuf);
 
 	/* OPEN THE UART
 	 * The flags (defined in fcntl.h):
@@ -156,6 +176,7 @@ int main(int argc, char *argv[])
 	 * continuously sending this command, it will restart the
 	 * module.
 	 */
+
 	for (i=0 ; i < 3; i++) {
 		writeserbuf(uart0fs, "AT+DMOCONNECT");
 		bytecnt=readserbuf(uart0fs, readbuf, len_readbuf);
@@ -174,6 +195,7 @@ int main(int argc, char *argv[])
 		 * Description: command used to configure a group of module parameters.
 		 * Format: AT+DMOSETGROUP=GBW,TFV, RFV,Tx_CTCSS,SQ,Rx_CTCSS<CR><LF>
 		 */
+
 		writeserbuf(uart0fs, "AT+DMOSETGROUP=0,144.3900,144.3900,0000,4,0000");
 		readserbuf(uart0fs, readbuf, len_readbuf);
 		writeserbuf(uart0fs, "AT+SETFILTER=1,1,1");
@@ -273,7 +295,8 @@ int readserbuf(int serialfs, char *readbuf, int len_readbuf)
 	return(retcode);
 }
 
-int add_decimal( char *str) {
+int add_decimal( char *str)
+{
 	char copy_str[16];
 
 	if( strlen(str) > 16 ) {
@@ -281,23 +304,18 @@ int add_decimal( char *str) {
 		return 0;
 	}
 	memset(copy_str, 0, 16);
-
-	printf ("debug: strlen: %zd\n", strlen(str));
-	printf ("str0: %s\n", str);
-
 	strncpy(copy_str, str, 16);
 
 	*(str+3) = '.';
 	*(str+4) = '\0';
-
-	printf ("str1: %s\n", str);
 
 	strncat(str, copy_str+3, 4);
 	printf("str2: %s\n", str);
 	return 1;
 }
 
-int padrightzeros(char *str_in, char *str_out) {
+int padrightzeros(char *str_in, char *str_out)
+{
 	char zerostr[DORJI_SIG_DIG];
 
 	int numstrsize = strlen(str_in);
@@ -315,7 +333,8 @@ int padrightzeros(char *str_in, char *str_out) {
 	return 0;
 }
 
-bool check_freq( int freq ) {
+bool check_freq( int freq )
+{
 	bool retcode = false;
 
 	if (freq >= 1340000 && freq <= 1740000) {
@@ -324,7 +343,8 @@ bool check_freq( int freq ) {
 	return (retcode);
 }
 
-int parse_freq(char *strfreq) {
+int parse_freq(char *strfreq)
+{
 	bool retcode = false;
 	return (retcode);
 }
@@ -338,10 +358,10 @@ const char *getprogname(void)
  * Print usage information and exit
  *  - does not return
  */
-static void
-   usage(void)
+static void usage(void)
 {
 	printf("Usage:  %s [tx freq] [rx freq]\n", getprogname());
-	printf("  frequency range: 134.0000 & 174.0000\n");
+	printf("  frequency range: 1340000 to 1740000\n");
+	printf("  No decimal points used in freq\n");
 	exit(EXIT_SUCCESS);
 }
