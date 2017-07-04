@@ -1,6 +1,12 @@
 ## Dev Notes
 
-##### How to use console serial port
+#### To use ows_init
+* **READ the man page**
+```
+cd onewattspot/n7nix/doc
+man ./ows_init.1
+```
+#### How to use console serial port
 
 [Turning off the UART functioning as a serial console](http://www.raspberry-projects.com/pi/pi-operating-systems/raspbian/io-pins-raspbian/uart-pins)
 * edit /boot/cmdline.txt
@@ -16,7 +22,7 @@ console=tty1
 ```
 enable_uart=1
 ```
-
+#### Other Problems
 * If EEPROM is not programmmed need to add this to /boot/config.txt
 ```
 dtoverlay=udrc
