@@ -96,8 +96,7 @@ int main(int argc, char *argv[])
 
 	while( next_option != -1 ) {
 
-		switch (next_option)
-		{
+		switch (next_option) {
 			case 0:   /* long option without a short arg */
 				/* If this option sets a flag, do nothing else now. */
 				if (long_options[option_index].flag != 0)
@@ -180,7 +179,7 @@ int main(int argc, char *argv[])
 
 	if(optind < argc ) {
 		prx_freq = argv[optind];
-		printf("DEBUG: arg chk tx: %s\n", prx_freq);
+		printf("DEBUG: arg chk rx: %s\n", prx_freq);
 
 		/* Don't allow decimal points */
 		if( memchr(ptx_freq, '.', strlen(ptx_freq)) != NULL) {
@@ -193,8 +192,8 @@ int main(int argc, char *argv[])
 		printf(" receive frequency: %ld, %zd\n",
 		       irx_freq, strlen(prx_freq));
 		optind++;
-
 	}
+
 	/* If anything else is on command line it's an error */
 	if( optind < argc) {
 		usage();  /* does not return */
