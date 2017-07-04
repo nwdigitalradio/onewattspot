@@ -1,0 +1,67 @@
+.\" $Id$
+.TH "ows_init" "1" "July 2017" "ows_init 0.1 " "User Commands"
+.SH "NAME"
+ows_init \- initializes one watt spot & sets frequency, volume, squelch & filter
+.SH "SYNOPSIS"
+.B ows_init
+[\fIOPTION\fR]... [\fITX_FREQ\fR] [\fIRX_FREQ\fR]
+.SH "DESCRIPTION"
+.LP
+ows_init sends commands using a serial port to the DORJI DRA818V VHF
+Band transceiver module to initialize the One Watt Spot device.  It is
+used to verify the Handshake command & sets the Group Setting command,
+Volume command & SETFILTER command.
+
+The One Watt Spot is a Raspberry Pi HAT & on a Raspberry Pi 3 uses serial port \fB/dev/ttyS0\fR
+
+Mandatory arguments to long options are mandatory for short options too.
+
+.TP
+\fBTX_FREQ, RX_FREQ\fR
+Set transmit & receive frequency.
+.br
+If only the transmit frequency is given the receive frequency is set to the same value.
+.br
+At least 3 digits must be specified, no decimal point should be used, appropriate trailing zeros are appended.
+.br
+\fBNote:\fR the Dorji module accepts 7 significant digits for frequency. The actual range is 134 Mhz to 174 Mhz.
+.br
+Value Range: 1340000 to 1740000
+.br
+Default is 1443900 (2M APRS 1200 baud frequency)
+.TP
+\fB\-v\fR  \fB\-\-volume\fR=\fINUM\fR
+Set volume of module to NUM (1\-8).
+Default is 3.
+.TP
+\fB\-s\fR  \fB\-\-squelch\fR=\fINUM\fR
+Set squelch level to NUM(0\-8).
+Default is 4.
+.TP
+\fB\-V\fR  \fB\-\-verbose\fR
+Print verbose messages
+.TP
+\fB\-h\fR  \fB\-\-help\fR
+Display usage info
+.SH EXAMPLES
+The following example initializes the Dorji DRA818V module with a
+handshake command, sets the volume to 4, turns squelch off and both
+the transmit and receive frequency to 144.350 Mhz.
+.IP
+.RS
+\f(CWows_init -v 4 -s 0 14435\fp
+.RE
+
+.SH "FILES"
+.PP
+/tmp/ows_state
+.RS
+State of the One Watt Spot including transmit and receive frequency.
+
+.SH "BUGS"
+.PP
+The serial connection will infrequently timeout. The read timeout is 5 seconds.
+
+.SH "AUTHOR"
+.LP
+Basil Gunn N7NIX <basil@pacabunga.com>
