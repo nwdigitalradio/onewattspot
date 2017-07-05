@@ -8,8 +8,11 @@ CC	= gcc
 CFLAGS	= -O2 -g -gstabs -Wall
 LIBS	= -lc
 
-SRC	= ows_init.c
-OBJS	= ows_init.o
+INIT_SRC  = ows_init.c ows_serialio.c
+INIT_OBJS = ows_init.o ows_serialio.o
+SCAN_SRC  = ows_scan.c ows_serialio.c
+SCAN_OBJS = ows_scan.o ows_serialio.o
+
 HDRS	=
 
 CFLAGS += -I/usr/local/include
@@ -27,7 +30,7 @@ ifeq ($(LOCK), yes)
   LIBS   += -llockdev
 endif
 
-all:	ows_init
+all:	ows_init ows_scan
 
 help:
 	@echo "  SYSTYPE = $(SYSTYPE)"
@@ -39,13 +42,16 @@ help:
 	@echo  "\tmake help"
 	@echo " "
 
+#ows_serialio.o: ows_serialio.c
 
-ows_init:	$(SRC) $(HDRS) $(OBJS) Makefile
-		$(CC) $(OBJS) -o ows_init $(LIBS)
+ows_init:	$(INIT_SRC) $(HDRS) $(INIT_OBJS) Makefile
+		$(CC) $(INIT_OBJS) -o ows_init $(LIBS)
 
+ows_scan:	$(SCAN_SRC) $(HDRS) $(SCAN_OBJS) Makefile
+		$(CC) $(SCAN_OBJS) -o ows_scan $(LIBS)
 
 # Clean up the object files for distribution
 clean:
-		rm -f $(OBJS)
+		rm -f $(INIT_OBJS) $(SCAN_OBJS)
 		rm -f core *.asc
-		rm ows_init
+		rm -f ows_init ows_scan
