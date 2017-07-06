@@ -43,6 +43,8 @@ int ows_initserial(const char *pathname)
 	}
 
 	/* CONFIGURE THE UART
+	 * parameters differ depending on the serial device you are connecting to
+	 *
 	 * PARITY_NONE, STOPBITS_ONE, EIGHT_BITS
 	 * The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
 	 *	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
@@ -68,10 +70,6 @@ int ows_initserial(const char *pathname)
 	tcsetattr(uart0fs, TCSANOW, &options);
 	return(uart0fs);
 }
-
-/*
- * configure the serial connections (the parameters differs on the device you are connecting to)
- */
 
 int ows_writeserbuf(int fs, char *outstring)
 {
