@@ -1,4 +1,10 @@
 ## Dev Notes
+#### Get this repo
+
+```bash
+git clone https://github.com/nwdigitalradio/onewattspot
+cd onewattspot/n7nix
+```
 
 #### To use ows_init
 * **READ the man page**
