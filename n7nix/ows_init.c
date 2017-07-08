@@ -45,7 +45,6 @@ extern char *__progname;
 int main(int argc, char *argv[])
 {
 	/* For command line parsing */
-
 	int next_option;
 	int option_index = 0; /* getopt_long stores the option index here. */
 
