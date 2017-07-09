@@ -39,7 +39,7 @@ typedef struct gsc {
 	int rx_ctcss;
 } gsc_t;
 
-int gverbose_flag = true;
+int gverbose_flag = false;
 
 extern char *__progname;
 
@@ -179,11 +179,15 @@ int main(int argc, char *argv[])
 	}
 
 	if(optind < argc ) {
+
+		/* get  transmit/receive frequency:
+		 * range: 134.000 - 174.000 Mhz */
+
 		prx_freq = argv[optind];
 		printf("DEBUG: arg chk rx: %s\n", prx_freq);
 
 		/* Don't allow decimal points */
-		if( memchr(ptx_freq, '.', strlen(ptx_freq)) != NULL) {
+		if( memchr(prx_freq, '.', strlen(prx_freq)) != NULL) {
 			usage(); /* does not return */
 		}
 		padrightzeros(prx_freq, gsc.rfv);
