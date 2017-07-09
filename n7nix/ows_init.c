@@ -10,7 +10,8 @@
 #include <ctype.h>
 
 #define PROG_VERSION "1.0"
-#define RPI_SERIAL_DEVICE "/dev/ttyS0" /* /dev/ttyAMA0 */
+/* Links to: /dev/ttyAMA0 on RPi 2, /dev/ttyS0 on RPi 3 */
+#define RPI_SERIAL_DEVICE "/dev/serial0"
 #define SIZE_READBUF 128
 #define SIZE_ATBUF 128
 #define DEFAULT_FREQ 1443900 /* APRS 2M 1200 baud */
