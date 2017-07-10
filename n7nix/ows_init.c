@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 	/* init some variables */
 	memset(&gsc, 0, sizeof(gsc));
 	gsc.sq = 4;
+	gsc.gbw = 1; /* set bandwidth to 25Khz */
 	dra_volume = 3;
 	itx_freq = irx_freq = DEFAULT_FREQ;
 	snprintf(gsc.tfv, DORJI_SIG_DIG+1, "%ld", itx_freq);
