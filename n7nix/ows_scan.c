@@ -62,14 +62,16 @@ int main(int argc, char *argv[])
 	char readbuf[SIZE_READBUF];
 	int len_readbuf = SIZE_READBUF;
 	char atbuf[SIZE_ATBUF];
-	char scan_freq[16];
 	char *freqlist[MAX_FREQ_COUNT+1]; /* store frequencines from command line */
 	int freqlist_index = 0;
 	int retcode;
-	/* set default scan period to 100 ms */
-	int scan_period = 100;
+	/* set default scan wait period to 100 ms */
+	int scanwait_period = 100;
+	/* set default scan check period to 5 s */
+	int scancheck_period = 5;
 
-	time_t glStartTime, t;
+	time_t glStartTime;
+	time_t start_time, current_time;
 	char *pTimeBuf;
 	int timeBufLen;
 
@@ -77,7 +79,7 @@ int main(int argc, char *argv[])
 	freqlist[0] = NULL;
 
 	/* short options */
-	static const char *short_options = "hVds:v:";
+	static const char *short_options = "hVdw:s:";
 	/* long options */
 	static struct option long_options[] =
 	{
@@ -87,7 +89,8 @@ int main(int argc, char *argv[])
 		/* These options don't set a flag.
 		We distinguish them by their indices. */
 		{"help",          no_argument,       NULL, 'h'},
-		{"period",        required_argument, NULL, 'p'},
+		{"wait",        required_argument, NULL, 'w'},
+		{"scan",        required_argument, NULL, 's'},
 		{NULL, no_argument, NULL, 0} /* array termination */
 	};
 
@@ -113,14 +116,25 @@ int main(int argc, char *argv[])
 					fprintf (stderr," with arg %s", optarg);
 				fprintf (stderr,"\n");
 				break;
-			case 'p': /* set period in msec */
+			case 'w': /* set wait period in msec */
 				if(optarg != NULL) {
-					scan_period = atoi(optarg);
+					scanwait_period = atoi(optarg);
 				} else {
 					usage();
 				}
-
-				printf("DEBUG: period: %d\n", scan_period);
+				if(DebugFlag) {
+					printf("DEBUG: scan wait period: %d\n", scanwait_period);
+				}
+				break;
+			case 's': /* set scan period in sec */
+				if(optarg != NULL) {
+					scancheck_period = atoi(optarg);
+				} else {
+					usage();
+				}
+				if(DebugFlag) {
+					printf("DEBUG: scan check period: %d\n", scancheck_period);
+				}
 				break;
 			case 'V':   /* set verbose flag */
 				gverbose_flag = true;
@@ -163,7 +177,7 @@ int main(int argc, char *argv[])
 			printf(" Default frequency index: %d, %s, %zd\n",
 			       freqlist_index-1, sfreq, strlen(sfreq));
 		} else {
-			printf("Parse error for default: %s\n", DEFAULT_FREQ);
+			printf("Parse error for default frequency: %s\n", DEFAULT_FREQ);
 		}
 	}
 
@@ -182,10 +196,12 @@ int main(int argc, char *argv[])
 			freqlist[freqlist_index] = prxm_freq;
 			freqlist_index++;
 
-			printf(" frequency index: %d, %s, %zd\n",
-			       freqlist_index-1, prxm_freq, strlen(prxm_freq));
+			if(gverbose_flag) {
+				printf(" frequency index: %d, %s, %zd\n",
+				       freqlist_index-1, prxm_freq, strlen(prxm_freq));
+			}
 		} else {
-			printf("Parse error for: %s\n", prx_freq);
+			printf("Parse error for frequency: %s\n", prx_freq);
 		}
 
 		optind++;
@@ -208,29 +224,33 @@ int main(int argc, char *argv[])
 	pTimeBuf = ctime(&glStartTime);
 	timeBufLen = strlen(pTimeBuf);
 	pTimeBuf[timeBufLen-1] = '\0';
-	printf( "START time: %s with scan period %d ms... running\n",
-		  pTimeBuf, scan_period );
+	printf( "START time: %s with scan: wait %d ms, check %d sec... running\n",
+		  pTimeBuf, scanwait_period, scancheck_period );
 
 	while(1) {
 
 		for (i = 0; i < freqlist_index; i++) {
-			strcpy(scan_freq, DEFAULT_FREQ);
 			snprintf(atbuf, sizeof(atbuf), "S+%s", freqlist[i]);
 
-			ows_writeserbuf(uart0fs, atbuf);
-			ows_readserbuf(uart0fs, readbuf, len_readbuf);
-			retcode = atoi(&readbuf[2]);
+			start_time = current_time = time(NULL);
 
-			t = time(NULL);
-			if(DebugFlag) {
-				printf("DEBUG: freq: %s, sig: %d at %s",
-				       atbuf, retcode, ctime(&t));
+			while(difftime(current_time, start_time) < scancheck_period) {
+				ows_writeserbuf(uart0fs, atbuf);
+				ows_readserbuf(uart0fs, readbuf, len_readbuf);
+				retcode = atoi(&readbuf[2]);
+
+				if(DebugFlag) {
+					printf("DEBUG: freq: %s, sig: %d at %s",
+					       atbuf, retcode, ctime(&current_time));
+				}
+				current_time = time(NULL);
+
+				if(retcode != 1) {
+					printf("packet[%d] on freq: %s at %s",
+					       retcode, freqlist[i], ctime(&current_time));
+				}
+				ms_sleep(scanwait_period);
 			}
-			if(retcode != 1) {
-				printf("packet[%d] on freq: %s at %s",
-				       retcode, freqlist[i], ctime(&t));
-			}
-			ms_sleep(scan_period);
 		}
 	}
 	return(0);
@@ -241,6 +261,9 @@ int ms_sleep(int mswait)
 	struct timeval tv;
 	int retcode;
 
+	if (mswait == 0) {
+		return(0);
+	}
 	tv.tv_sec = 1;
 	tv.tv_usec = 1000 * mswait;
 
