@@ -374,7 +374,8 @@ static void usage(void)
 {
 	printf("Usage:  %s [options]\n", getprogname());
 	printf("  Version: %s\n", PROG_VERSION);
-	printf("  -p  --period     Set scan period in msec (500 = 1/2sec)\n");
+	printf("  -w  --wait	   Set scan period in msec (500 = 1/2sec)\n");
+	printf("  -s  --scan       Set scan period in sec\n");
 	printf("  -V  --verbose    Print verbose messages\n");
 	printf("  -d  --debug      Turn on debug messages\n");
 	printf("  -h  --help       Display this usage info\n");
