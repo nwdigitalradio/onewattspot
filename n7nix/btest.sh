@@ -43,6 +43,40 @@ function usage() {
    echo
 }
 
+# ===== function check gpio mode
+function chk_gpio_mode() {
+   ret_code=0
+   wpi_num="$1"
+   gpio_num="$2"
+   mode="$3"
+   cut="$4"
+   mode_gpio="$(gpio readall | grep -i "$wpi_num" | cut -d "|" -f $cut | tr -d '[:space:]')"
+
+   if [ "$mode_gpio" != "$mode" ] ; then
+      echo "gpio $gpio_num is in wrong mode: |$mode_gpio|, should be: $mode"
+      gpio -g mode $gpio_num $mode
+      ret_code=1
+  fi
+  return $ret_code
+}
+
+# ===== function check gpio level
+function chk_gpio_level() {
+   ret_code=0
+   wpi_num="$1"
+   gpio_num="$2"
+   level="$3"
+   cut="$4"
+   level_gpio="$(gpio readall | grep -i "$wpi_num" | cut -d "|" -f $cut | tr -d '[:space:]')"
+
+   if [ "$level_gpio" != "$level" ] ; then
+      echo "gpio $gpio_num has wrong level: |$level_gpio|, should be: $level"
+      gpio -g write $gpio_num $level
+      ret_code=1
+  fi
+  return $ret_code
+}
+
 # ===== main
 # must run as root
 if [[ $EUID -ne 0 ]]; then
@@ -64,6 +98,16 @@ if [ $? -ne 0 ]; then
     echo "$scriptname: **** ax25 port $ax25port does not exist"
     exit 1
 fi
+
+# verify that gpio's are set properly for onewattspot
+chk_gpio_mode "gpio. 4" 23 "OUT" 11
+chk_gpio_mode "gpio. 5" 24 "OUT" 11
+chk_gpio_mode "gpio. 2" 27 "OUT" 5
+chk_gpio_mode "gpio.21" 5 "IN" 5
+
+chk_gpio_level "gpio. 4" 23 1 10
+chk_gpio_level "gpio. 5" 24 1 10
+chk_gpio_level "gpio. 2" 27 0 6
 
 seqnum=0
 # get sequence number
@@ -143,7 +187,7 @@ timestamp=$(date "+%d %T %Z")
 # appearing at end of string on APRS.fi
 # eg: 0A<0x0f> [Invalid message packet]
 # Test
-TXDELAY=600
+TXDELAY=650
 TXTAIL=100
 PERSIST=63
 SLOTTIME=10
@@ -152,10 +196,12 @@ $KISSPARMS -p $ax25port -f n -l $TXTAIL -r $PERSIST -s $SLOTTIME -t $TXDELAY
 
 if [ "$BEACON_TYPE" = "mesg_beacon" ] ; then
 
-   beacon_msg=":$CALLPAD:$timestamp $CALLNOSID tail: $TXTAIL, persist: $PERSIST, slot: $SLOTTIME, delay: $TXDELAY from $(hostname) Seq: $seqnum"
+#   beacon_msg=":$CALLPAD:$timestamp $CALLNOSID tail: $TXTAIL, persist: $PERSIST, slot: $SLOTTIME, delay: $TXDELAY from $(hostname) Seq: $seqnum"
+   beacon_msg=":$CALLPAD:$timestamp $CALLNOSID gpio chk, delay: $TXDELAY from $(hostname) Seq: $seqnum"
 
 else
-   beacon_msg="!4829.06N/12254.12W-$timestamp, tail: $TXTAIL, persist: $PERSIST, slot: $SLOTTIME, delay: $TXDELAY from $(hostname) Seq: $seqnum"
+#   beacon_msg="!4829.06N/12254.12W-$timestamp, tail: $TXTAIL, persist: $PERSIST, slot: $SLOTTIME, delay: $TXDELAY from $(hostname) Seq: $seqnum"
+   beacon_msg="!4829.06N/12254.12W-$timestamp, gpio chk, delay: $TXDELAY from $(hostname) Seq: $seqnum"
 fi
 
 echo " Sent \
