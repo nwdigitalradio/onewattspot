@@ -2,8 +2,11 @@
 #
 # ows_install.sh
 
+scriptname="`basename $0`"
+UDR_INSTALL_LOGFILE="/var/log/udr_install.log"
+
 PKG_LIST="wiringpi"
-FILE_LIST="ows_gpio_setup.sh ows_alsa_setup.sh ows_init"
+FILE_LIST="ows_gpio_setup.sh ows_alsa_setup.sh ows_init btest.sh"
 
 # ===== function is_pkg_installed
 
@@ -66,6 +69,54 @@ for file_name in `echo ${FILE_LIST}` ; do
    cp $file_name /usr/local/bin
 done
 
+echo
+echo " === setup persistent kiss parameters"
+AX25DEVICE_FILE="/etc/systemd/system/ax25dev.service"
+
+PORT="udr0"
+TXDELAY=700
+TXTAIL=100
+PERSIST=63
+SLOTTIME=100
+
+kiss_params=" -p $PORT -f n -l $TXTAIL -r $PERSIST -s $SLOTTIME -t $TXDELAY"
+# edit from after command kissparms to end of line
+# only if beginning of line not comment
+sed -r -i "/^#/!s/(kissparms).*/\1$kiss_params\'/" $AX25DEVICE_FILE
+
 # edit systemd service file to run
 #  - ows_gpio_setup.sh, ows_alsa_setup.sh, ows_init
 
+sed -i "/^ExecStartPost=/a \
+ExecStartPost=/bin/bash -c '/usr/local/bin/ows_gpio_setup.sh'\n\
+ExecStartPost=/bin/bash -c '/usr/local/bin/ows_alsa_setup.sh'\n\
+ExecStartPost=/usr/local/bin/ows_init -s 0 -v 4 14439000" $AX25DEVICE_FILE
+
+echo
+echo " === setup crontab"
+
+# Does user have a crontab?
+USER="root"
+crontab -u $USER -l > /dev/null 2>&1
+if [ $? -ne 0 ] ; then
+   echo "user $USER does NOT have a crontab, creating"
+   crontab  -l ;
+   {
+   echo "# m h  dom mon dow   command"
+   echo "*/20  *  *  *  *    /usr/local/bin/btest.sh --position > /dev/null 2>&1"
+   } | crontab -
+else
+   echo "$scriptname: User: $USER already has a crontab"
+fi
+
+echo "$scriptname: crontab looks like this:"
+echo
+crontab -l
+echo
+
+
+
+echo "$(date "+%Y %m %d %T %Z"): onewattspot install script FINISHED" >> $UDR_INSTALL_LOGFILE
+echo
+echo "onewattspot install script FINISHED"
+echo
