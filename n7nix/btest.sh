@@ -44,6 +44,16 @@ function usage() {
    echo
 }
 
+# ===== function set kiss parameters
+function set_kiss_parms() {
+   TXDELAY=650
+   TXTAIL=100
+   PERSIST=63
+   SLOTTIME=10
+
+   $KISSPARMS -p $ax25port -f n -l $TXTAIL -r $PERSIST -s $SLOTTIME -t $TXDELAY
+}
+
 # ===== function check gpio mode
 function chk_gpio_mode() {
    ret_code=0
@@ -188,12 +198,8 @@ timestamp=$(date "+%d %T %Z")
 # appearing at end of string on APRS.fi
 # eg: 0A<0x0f> [Invalid message packet]
 # Test
-TXDELAY=650
-TXTAIL=100
-PERSIST=63
-SLOTTIME=10
 
-$KISSPARMS -p $ax25port -f n -l $TXTAIL -r $PERSIST -s $SLOTTIME -t $TXDELAY
+# set_kiss_parms
 
 if [ "$BEACON_TYPE" = "mesg_beacon" ] ; then
 
