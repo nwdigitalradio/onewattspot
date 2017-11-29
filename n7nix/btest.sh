@@ -1,9 +1,10 @@
 #!/bin/bash
 #
 # btest.sh
-# Added sequence number 7/1/2017
-# Added setting kissparms 7/7/2017
-# Added choice of beacon types 7/8/2017
+# Add sequence number 7/1/2017
+# Add setting kissparms 7/7/2017
+# Add choice of beacon types 7/8/2017
+# Add gpio mode & level check 11/12/2017
 #
 # beacon options
 # -c source callsign
