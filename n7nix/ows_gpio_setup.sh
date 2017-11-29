@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# ows_gpio_setup.sh
+
 # ptt
 gpio -g mode 23 out
 gpio -g write 23 1

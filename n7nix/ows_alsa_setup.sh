@@ -1,5 +1,7 @@
 #!/bin/bash
-
+#
+# ows_alsa_setup.sh
+#
 # Bryan: I calculate -6dB for PCM and -6dB for LO for 2.8kHz deviation
 # John:   0.0dB for PCM, -0dB for LO,  -1.0dB for ADC Level
 # Basil:  0.0dB for PCM, 5.0db for LO, -1.0dB for ADC Level
@@ -65,4 +67,7 @@ sset 'LOL Output Mixer L_DAC' on
 #  Turn on TONEIN
 sset 'LOR Output Mixer R_DAC' on
 EOF
+
 alsactl store
+
+echo " 1w spot alsa setup complete"
