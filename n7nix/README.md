@@ -46,3 +46,12 @@ enable_uart=1
 ```
 dtoverlay=udrc
 ```
+
+#### onewattspot install
+  * This configures a bootable onewattspot
+```
+cd onewattspot/n7nix
+sudo su
+./ows_install.sh
+shutdown -r now
+```
