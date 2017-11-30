@@ -48,7 +48,9 @@ dtoverlay=udrc
 ```
 
 #### onewattspot install
-  * This configures a bootable onewattspot
+* This installs & configures a bootable onewattspot
+  * frequency is set to 2M APRS 144.390 MHz
+
 ```
 cd onewattspot/n7nix
 sudo su
