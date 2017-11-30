@@ -20,7 +20,7 @@ return $(dpkg-query -W -f='${Status}' $1 2>/dev/null | grep -c "ok installed" >/
 # Verify serial0 exists as a symbolic link
 if [ ! -L "/dev/serial0" ] ; then
    echo "ERROR: Serial device /dev/serial0 does not exist"
-   exit
+#   exit
 fi
 
 echo " === Install required packages
@@ -65,6 +65,10 @@ echo "dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 elev
 
 echo " === Install required setup programs"
 
+if [ ! -f ows_init ] ; then
+   make
+fi
+
 for file_name in `echo ${FILE_LIST}` ; do
    cp $file_name /usr/local/bin
 done
@@ -90,7 +94,7 @@ sed -r -i "/^#/!s/(kissparms).*/\1$kiss_params\'/" $AX25DEVICE_FILE
 sed -i "/^ExecStartPost=/a \
 ExecStartPost=/bin/bash -c '/usr/local/bin/ows_gpio_setup.sh'\n\
 ExecStartPost=/bin/bash -c '/usr/local/bin/ows_alsa_setup.sh'\n\
-ExecStartPost=/usr/local/bin/ows_init -s 0 -v 4 14439000" $AX25DEVICE_FILE
+ExecStartPost=/usr/local/bin/ows_init -s 0 -v 4 1443900" $AX25DEVICE_FILE
 
 echo
 echo " === setup crontab"
